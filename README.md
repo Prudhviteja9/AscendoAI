@@ -45,12 +45,11 @@ De-duplicated
 
 Limited to a safe count (e.g., 40) for LLM processing
 
-This matches the requirement from the assessment on page 1:
 
 “Find jobs in Field Service — this can be from... job posting sites with free API… refreshed every hour.”
 
 
-Assessment for Solutions Intern
+
 
 2. AI Insight & Community Content Layer
 
@@ -68,7 +67,7 @@ LinkedIn/TikTok-style commentary
 “This agent will be used to create engagement on LinkedIn, TikTok, and other platforms.”
 
 
-3. Optional Frontend (Streamlit UI)
+3. OStreamlit UI
 
 I created a simple Streamlit frontend where:
 
