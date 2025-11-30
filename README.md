@@ -143,21 +143,8 @@ User-friendly way to trigger & visualize the agent.
 ▶️ Demo Video
 
 (I will paste the final video link here)
-👉 demo link here
+👉 https://drive.google.com/file/d/1vQIoINJ2Tryy-1QyoMRHozcGtpOE1M7H/view?usp=sharing
 
-📂 Repository Structure
-.
-├── workflow/
-│   └── ascendo-community-jobs.json   # Full n8n workflow
-├── prompts/
-│   └── ascendo_agent_prompt.md       # LLM system + user prompts
-├── samples/
-│   ├── jsearch_raw_response.json     # Example API output
-│   ├── jobs_normalized_example.json  # Jobs after code processing
-│   └── agent_summary_example.md      # Example LinkedIn/TikTok post
-├── web/
-│   └── app.py                        # Streamlit UI
-└── README.md                         # This file
 
 🚀 How to Run
 1. Install n8n
@@ -187,18 +174,11 @@ Click Execute Workflow.
 
 Set workflow to Active.
 
-📢 Broadcast Strategy (Required by Assessment)
-
-Per assessment requirement #2 on page 2:
-
-“Write a paragraph or bullet points on how you will broadcast this agent to enhance the field service community.”
 
 
-Assessment for Solutions Intern
 
-Here is the final polished version you can include:
 
-How I Will Broadcast This Agent
+How I Will Broadcast This Agent:
 
 To enhance the field service community, I will:
 
