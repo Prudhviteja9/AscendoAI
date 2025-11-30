@@ -69,8 +69,6 @@ This fulfills page 1–2 of the assessment:
 “This agent will be used to create engagement on LinkedIn, TikTok, and other platforms.”
 
 
-Assessment for Solutions Intern
-
 3. Optional Frontend (Streamlit UI)
 
 I created a simple Streamlit frontend where:
