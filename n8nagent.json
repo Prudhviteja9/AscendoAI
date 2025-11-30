@@ -1,0 +1,155 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "triggerAtMinute": 1
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a693d39b-8b12-444f-add4-2609690a8718",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Jobs From Sources – JSearch only\n\nconst API_KEY = $env.JSEARCH_API_KEY || '1020015084msh898f3e0b2db3c0bp119254jsnaff19f446a44';\n\n// Queries you care about (you can tweak later to field-service keywords)\nconst QUERIES = [\n  'field service engineer',\n  'field service technician',\n  'field service manager',\n  'field service director',\n];\n\nconst COUNTRY = 'us';\nconst PAGES_PER_QUERY = 1;     // keep small while testing\nconst MAX_TOTAL_JOBS = 40;     // safety cap\n\nif (!API_KEY) {\n  throw new Error('Missing JSEARCH_API_KEY (env var or hard-coded fallback)');\n}\n\nfunction inferSeniority(title = '') {\n  const t = title.toLowerCase();\n  if (t.includes('vice president') || t.includes('vp ')) return 'Executive';\n  if (t.includes('director')) return 'Director';\n  if (t.includes('manager') || t.includes('supervisor') || t.includes('lead')) return 'Manager';\n  if (t.includes('senior') || t.includes('sr ')) return 'Senior IC';\n  return 'Individual Contributor';\n}\n\nfunction normalizeJob(job) {\n  const title = job.job_title || '';\n  const company = job.employer_name || 'Unknown';\n\n  let location = 'Unknown';\n  if (job.job_city && job.job_country) {\n    location = `${job.job_city}${job.job_state ? ', ' + job.job_state : ''}, ${job.job_country}`;\n  } else if (job.job_city || job.job_country) {\n    location = job.job_city || job.job_country;\n  }\n\n  const url =\n    job.job_apply_link ||\n    job.job_google_link ||\n    job.job_jp_link ||\n    '';\n\n  return {\n    id: `jsearch-${job.job_id}`,\n    title,\n    company,\n    location,\n    seniority: inferSeniority(title),\n    source: 'JSearch',\n    url,\n    posted_at: job.job_posted_at_datetime_utc || new Date().toISOString(),\n  };\n}\n\nasync function fetchJSearchForQuery(query) {\n  const all = [];\n\n  for (let page = 1; page <= PAGES_PER_QUERY; page++) {\n    const res = await this.helpers.httpRequest({\n      method: 'GET',\n      url: 'https://jsearch.p.rapidapi.com/search',\n      qs: {\n        query,\n        page,\n        num_pages: 1,\n        country: COUNTRY,\n        date_posted: 'all',\n      },\n      headers: {\n        'x-rapidapi-host': 'jsearch.p.rapidapi.com',\n        'x-rapidapi-key': API_KEY,\n      },\n      json: true,\n    });\n\n    if (!res || !res.data) continue;\n\n    for (const raw of res.data) {\n      const job = normalizeJob(raw);\n      all.push(job);\n      if (all.length >= MAX_TOTAL_JOBS) break;\n    }\n\n    if (all.length >= MAX_TOTAL_JOBS) break;\n  }\n\n  return all;\n}\n\nasync function main() {\n  const collected = [];\n\n  for (const q of QUERIES) {\n    const jobs = await fetchJSearchForQuery.call(this, q);\n    collected.push(...jobs);\n    if (collected.length >= MAX_TOTAL_JOBS) break;\n  }\n\n  // de-duplicate by title + company + location\n  const seen = new Set();\n  const deduped = [];\n  for (const job of collected) {\n    const key = `${job.title}::${job.company}::${job.location}`;\n    if (seen.has(key)) continue;\n    seen.add(key);\n    deduped.push(job);\n  }\n\n  const lastRefreshedAt = new Date().toISOString();\n\n  return deduped.map(job => ({\n    json: {\n      ...job,\n      last_refreshed_at: lastRefreshedAt,\n    },\n  }));\n}\n\nreturn main.call(this);\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ],
+      "id": "ac241bd7-db0b-446c-8df0-34433c306769",
+      "name": "Build Jobs From Sources"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=You are an expert community builder for field service leaders.\nYou ALWAYS respond with a single JSON object only, no explanation, no extra text.\nThe JSON MUST have two keys: \"linkedin_post\" and \"tiktok_hook\".\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        832,
+        0
+      ],
+      "id": "e6d80a10-cfd8-4b9a-8f30-dd1bb723feaa",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "vRXMZIDMbTm6JlT0",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// We will use ONLY the first item from OpenAI for now\nconst item = items[0].json;\n\n// 1. Get the raw text where the model wrote the JSON\nlet text = item.output[0].content[0].text;\n\n// 2. Strip Markdown code fences like ```json ... ```\ntext = text.trim();\nif (text.startsWith('```')) {\n  const firstNewline = text.indexOf('\\n');\n  const lastFence = text.lastIndexOf('```');\n  text = text.substring(firstNewline + 1, lastFence).trim();\n}\n\n// 3. Parse JSON safely\nlet parsed;\ntry {\n  parsed = JSON.parse(text);\n} catch (e) {\n  // If parsing fails, fallback: return the raw text so you can debug\n  return [\n    {\n      json: {\n        error: 'Failed to parse JSON from OpenAI response',\n        raw_text: text,\n      },\n    },\n  ];\n}\n\n// 4. Return only the two fields we care about\nconst linkedin_post = parsed.linkedin_post || '';\nconst tiktok_hook = parsed.tiktok_hook || '';\n\nreturn [\n  {\n    json: {\n      linkedin_post,\n      tiktok_hook,\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        0
+      ],
+      "id": "38d939b4-0e1d-48ef-a384-f6f07745b162",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1) Get ALL jobs from the \"Build Jobs From Sources\" node by name.\n//    Change the name below if your node has a different label.\nconst jobItems = $items(\"Build Jobs From Sources\");\nconst jobs = jobItems.map(item => item.json);\n\n// 2) Get the digest (linkedin_post + tiktok_hook) from THIS node's input\n//    (Format Digest is right before this node, so items[0].json is the digest).\nconst digest = items[0].json || {};\nconst linkedin_post = digest.linkedin_post || \"\";\nconst tiktok_hook = digest.tiktok_hook || \"\";\n\n// 3) Compute last_refreshed_at\nconst last_refreshed_at = jobs.length\n  ? jobs[0].last_refreshed_at\n  : new Date().toISOString();\n\n// 4) Return a single nicely structured JSON object\nreturn [\n  {\n    json: {\n      last_refreshed_at,\n      total_jobs: jobs.length,\n      jobs,\n      linkedin_post,\n      tiktok_hook,\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        0
+      ],
+      "id": "e746e92b-b6bb-4ce7-ac90-de78948735b2",
+      "name": "Code in JavaScript1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Build Jobs From Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Jobs From Sources": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "fe65fb3b-0a76-44cc-b529-272cbb26fb56",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "91ec92f0fb130a57c367810d2eb0a4ab2e69e6d4854e7351a9db6ec917ef206a"
+  },
+  "id": "QVcuqaPZApoLUq3l",
+  "tags": []
+}
