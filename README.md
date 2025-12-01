@@ -89,10 +89,7 @@ JSearch API (RapidAPI) – job search API
 
 OpenAI Chat Completions – commentary & analysis generation
 
-Streamlit – frontend UI (optional)
-
-Python (only for frontend)
-
+Streamlit – frontend UI
 JavaScript (n8n) for normalization logic
 
 🔄 Workflow Steps (End-to-End)
@@ -132,7 +129,7 @@ Prepare JSON and plain text
 
 Send data back to the frontend (if in webhook mode)
 
-5. Streamlit App (Optional)
+5. Streamlit App 
 
 User-friendly way to trigger & visualize the agent.
 
